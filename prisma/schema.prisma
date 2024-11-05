@@ -1,0 +1,182 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String  @unique @default(cuid())
+  email     String  @unique
+  firstname String?
+  lastname  String?
+  image     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studio        Media?
+  workspaces    Workspace[]
+  members       Member[]
+  sender        Invite[]       @relation("sender")
+  reciever      Invite[]       @relation("reciever")
+  notifications Notification[]
+  subscription  Subscription?
+  videos        Video[]
+}
+
+enum MediaPreset {
+  HD
+  SD
+}
+
+model Media {
+  id     String      @unique @default(cuid())
+  screen String?
+  mic    String?
+  camera String?
+  preset MediaPreset @default(SD)
+
+  userId String? @unique
+  User   User?   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum workspacesType {
+  PERSONAL
+  PRIVATE
+}
+
+model Workspace {
+  id   String @unique @default(cuid())
+  name String
+
+  type workspacesType @default(PRIVATE)
+
+  isTrashed Boolean @default(false)
+  isDeleted Boolean @default(false)
+
+  userId String
+  User   User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  folders Folder[]
+  members Member[]
+  invites Invite[]
+  videos  Video[]
+
+  @@index([userId])
+}
+
+model Folder {
+  id   String @unique @default(cuid())
+  name String @default("Untitled")
+
+  workspaceId String
+  Workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  videos Video[]
+
+  @@index([workspaceId])
+}
+
+model Member {
+  id     String @unique @default(cuid())
+  userId String
+
+  User        User      @relation(fields: [userId], references: [id])
+  workspaceId String
+  Workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([workspaceId])
+}
+
+model Invite {
+  id       String @unique @default(cuid())
+  senderId String
+  sender   User   @relation("sender", fields: [senderId], references: [id])
+
+  recieverId String
+  reciever   User   @relation("reciever", fields: [recieverId], references: [id])
+
+  workspaceId String
+  Workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  accepted Boolean @default(false)
+  content  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([recieverId])
+  @@index([workspaceId])
+}
+
+model Notification {
+  id      String @unique @default(cuid())
+  content String
+  userId  String
+  User    User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum SUBSCRIPTION_PLAN {
+  PRO
+  FREE
+}
+
+model Subscription {
+  id     String @unique @default(cuid())
+  userId String @unique
+  User   User   @relation(fields: [userId], references: [id])
+
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  customerId String?           @unique
+  plan       SUBSCRIPTION_PLAN @default(FREE)
+}
+
+model Video {
+  id          String  @unique @default(cuid())
+  title       String  @default("Untitled")
+  description String  @default("Untitled")
+  source      String  @unique
+  processing  Boolean @default(true)
+  views       Int     @default(0)
+  summary     String?
+
+  folderId String?
+  Folder   Folder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  userId String
+  User   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workspaceId String?
+  Workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
